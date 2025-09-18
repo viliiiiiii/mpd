@@ -2,39 +2,49 @@ services:
   icecast:
     image: libretime/icecast:2.4.4
     container_name: radio_icecast
-    # If you already have a working icecast.xml, keep it. Otherwise use the sample below.
     volumes:
       - ./icecast.xml:/etc/icecast2/icecast.xml:ro
     ports:
-      - "8000:8000"        # public stream: http://YOUR_IP:8000/stream.ogg
+      - "8000:8000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   mpd:
-    # We build MPD so the config matches exactly.
     build: ./mpd
     container_name: radio_mpd
     depends_on:
       - icecast
     environment:
-      # MPD will read the same values inside mpd.conf we copy,
-      # but these are handy if you later template things.
       - MPD_MUSIC=/music
     volumes:
-      - ./music:/music:ro            # your uploaded music (mp3/ogg/flac etc.)
-      - mpd-data:/var/lib/mpd        # MPD db/state/stickers
-      - mpd-playlists:/playlists     # saved playlists
+      - ./music:/music:ro
+      - mpd-data:/var/lib/mpd
+      - mpd-playlists:/playlists
+    # TEMP: expose to host for testing; remove later if you want
+    ports:
+      - "6600:6600"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mpc -h localhost -p 6600 status >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   ympd:
     image: giof71/ympd:latest
     container_name: radio_ympd
     depends_on:
-      - mpd
+      mpd:
+        condition: service_healthy
     environment:
       - YMPD_MPD_SERVER=mpd
       - YMPD_MPD_PORT=6600
     ports:
-      - "8081:80"          # web UI: http://YOUR_IP:8081
+      - "8081:80"
     restart: unless-stopped
 
 volumes:
