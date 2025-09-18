@@ -11,28 +11,30 @@ services:
       test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
       interval: 10s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   mpd:
     build: ./mpd
     container_name: radio_mpd
     depends_on:
-      - icecast
+      icecast:
+        condition: service_healthy
     environment:
       - MPD_MUSIC=/music
     volumes:
       - ./music:/music:ro
       - mpd-data:/var/lib/mpd
       - mpd-playlists:/playlists
-    # TEMP: expose to host for testing; remove later if you want
+    # TEMP: expose to host to test quickly; remove later if you want
     ports:
       - "6600:6600"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "mpc -h localhost -p 6600 status >/dev/null 2>&1 || exit 1"]
+      # don’t rely on mpc; just check the port
+      test: ["CMD-SHELL", "nc -z localhost 6600 || exit 1"]
       interval: 10s
       timeout: 3s
-      retries: 10
+      retries: 30
 
   ympd:
     image: giof71/ympd:latest
